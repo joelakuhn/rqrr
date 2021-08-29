@@ -46,7 +46,9 @@ pub fn capstones_from_image<S>(img: &mut PreparedImage<S>) -> Vec<CapStone> wher
             if let Some(linepos) = finder.advance(img.get_pixel_at(x, y)) {
                 if is_capstone(img, &linepos, y) {
                     let cap = create_capstone(img, &linepos, y);
-                    res.push(cap);
+                    if cap.is_some() {
+                        res.push(cap.unwrap());
+                    }
                 }
             }
         }
@@ -56,7 +58,9 @@ pub fn capstones_from_image<S>(img: &mut PreparedImage<S>) -> Vec<CapStone> wher
         if let Some(linepos) = finder.advance(PixelColor::White) {
             if is_capstone(img, &linepos, y) {
                 let cap = create_capstone(img, &linepos, y);
-                res.push(cap);
+                if cap.is_some() {
+                    res.push(cap.unwrap());
+                }
             }
         }
     }
@@ -214,7 +218,7 @@ fn create_capstone<S>(
     img: &mut PreparedImage<S>,
     linepos: &LinePosition,
     y: usize,
-) -> CapStone  where S: ImageBuffer {
+) -> Option<CapStone>  where S: ImageBuffer {
     /* Find the corners of the ring */
     let start_point = Point { x: linepos.right as i32, y: y as i32 };
     let first_corner_finder = FirstCornerFinder::new(start_point);
@@ -222,6 +226,17 @@ fn create_capstone<S>(
     let all_corner_finder = AllCornerFinder::new(start_point, first_corner_finder.best());
     let all_corner_finder = img.repaint_and_apply((linepos.right, y), PixelColor::CapStone, all_corner_finder);
     let corners = all_corner_finder.best();
+
+    let valid = corners[0] != corners[1]
+             && corners[0] != corners[2]
+             && corners[0] != corners[3]
+             && corners[1] != corners[2]
+             && corners[1] != corners[3]
+             && corners[2] != corners[3];
+    
+    if !valid {
+        return None;
+    }
 
     /* Set up the perspective transform and find the center */
     let c = Perspective::create(
@@ -231,11 +246,11 @@ fn create_capstone<S>(
     );
     let center = c.map(3.5, 3.5);
 
-    CapStone {
+    Some(CapStone {
         c,
         corners,
         center,
-    }
+    })
 }
 
 /// Find the a corner of a sheared rectangle.
